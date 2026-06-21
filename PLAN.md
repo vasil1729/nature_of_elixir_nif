@@ -262,7 +262,7 @@ e##_test.exs}`, verifies via `scripts/run_experiment.sh E##` or UI.
 - [x] **Phase 0 commit 2:** Mechanism deep-dives (docs/01–08)
 - [x] **Phase 0 commit 3:** Architecture + dev guide + ADRs (docs/09, 10, 13, adr/0001–0008)
 - [x] **Phase 1 commit 4:** docker/
-- [ ] **Phase 1 commit 5:** Elixir umbrella scaffold
+- [x] **Phase 1 commit 5:** Elixir umbrella scaffold
 - [ ] **Phase 1 commit 6:** lab_core instrumentation
 - [ ] **Phase 1 commit 7:** lab_native Rustler crate
 - [ ] **Phase 1 commit 8:** lab_port Rust binary
@@ -278,7 +278,7 @@ e##_test.exs}`, verifies via `scripts/run_experiment.sh E##` or UI.
 - [ ] **Phase 4 commit 38:** Catalog filled + charts
 - [ ] **Phase 4 commit 39:** FINAL_REPORT.md
 
-**Currently executing:** Phase 1 commit 5 — Elixir umbrella scaffold
+**Currently executing:** Phase 1 commit 6 — lab_core instrumentation
 
 ---
 
