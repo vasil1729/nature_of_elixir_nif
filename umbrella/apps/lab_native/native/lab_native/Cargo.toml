@@ -1,0 +1,19 @@
+[package]
+name = "lab_native"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "lab_native"
+crate-type = ["cdylib"]
+
+[dependencies]
+rustler = "0.38"
+
+[profile.release]
+# panic = "unwind" is REQUIRED for E08 (Rust panic) — Rustler catches panics
+# via catch_unwind, which only works with unwinding. Do NOT change to "abort".
+panic = "unwind"
+opt-level = 3
+lto = false
