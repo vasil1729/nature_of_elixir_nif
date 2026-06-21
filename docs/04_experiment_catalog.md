@@ -13,13 +13,13 @@ schedulers. Core question: *what actually starves a scheduler?*
 
 | ID | Name | NIF | Mode | Tags | Status |
 |----|------|-----|------|------|--------|
-| E01 | CPU-bound Normal NIF | `cpu_work_ms` (Normal) | in_process | @slow | pending |
-| E02 | CPU-bound Dirty NIF | `cpu_work_ms_dirty` (DirtyCpu) | in_process | @slow | pending |
-| E03 | Infinite Loop | `infinite_loop` (Normal+DirtyCpu) | isolated | @crash @slow | pending |
-| E04 | Sleeping Normal NIF | `sleep_for_ms` (Normal) | in_process | @slow | pending |
-| E05 | Sleeping Dirty NIF | `sleep_for_ms_dirty` (DirtyIo) | in_process | @slow | pending |
-| E06 | Network Wait | `sleep_for_ms` + socket (Normal+DirtyIo) | in_process | @slow | pending |
-| E07 | Filesystem Stall | `sleep_for_ms` + file (Normal+DirtyIo) | in_process | @slow | pending |
+| E01 | CPU-bound Normal NIF | `cpu_work_ms` (Normal) | in_process | @slow | added ✓ |
+| E02 | CPU-bound Dirty NIF | `cpu_work_ms_dirty` (DirtyCpu) | in_process | @slow | added ✓ |
+| E03 | Infinite Loop | `infinite_loop` (Normal) / `infinite_loop_dirty` (DirtyCpu) | isolated | @crash @slow | added ✓ |
+| E04 | Sleeping Normal NIF | `sleep_for_ms` (Normal) | in_process | @slow | added ✓ |
+| E05 | Sleeping Dirty NIF | `sleep_for_ms_dirty_io` (DirtyIo) | in_process | @slow | added ✓ |
+| E06 | Network Wait | `sleep_for_ms_dirty_io` (DirtyIo) | in_process | @slow | added ✓ |
+| E07 | Filesystem Stall | `fs_read_bytes_dirty_io` (DirtyIo) | in_process | @slow | added ✓ |
 
 **Key comparisons:** E01 vs E02 (normal vs dirty CPU), E04 vs E05 (normal vs
 dirty sleep), E06/E07 normal vs DirtyIo.
@@ -31,13 +31,13 @@ happens to native resources and threads under failure.
 
 | ID | Name | NIF | Mode | Tags | Status |
 |----|------|-----|------|------|--------|
-| E08 | Rust Panic | `panic_now` (Normal) | isolated | @crash | pending |
-| E09 | Native Memory Leak | `leak_memory_mb` (Normal) | in_process | @slow | pending |
-| E10 | Resource Leak | `make_resource` (Normal) | in_process | @slow | pending |
-| E11 | Mutex Deadlock | `deadlock` (DirtyCpu) | isolated | @crash @slow | pending |
-| E12 | Thread Explosion | `spawn_threads` (Normal) | in_process | @slow | pending |
-| E13 | Detached Native Thread | `detach_thread` (Normal) | in_process | @slow | pending |
-| E14 | Native Library Failure | `segfault` (Normal) | isolated | @crash | pending |
+| E08 | Rust Panic | `panic_now` (Normal) | isolated | @crash | added ✓ |
+| E09 | Native Memory Leak | `leak_memory_mb` (Normal) | in_process | @slow | added ✓ |
+| E10 | Resource Leak | `make_resource` (Normal) | in_process | @slow | added ✓ |
+| E11 | Mutex Deadlock | `deadlock` (DirtyCpu) | isolated | @crash @slow | added ✓ |
+| E12 | Thread Explosion | `spawn_threads` (Normal) | in_process | @slow | added ✓ |
+| E13 | Detached Native Thread | `detach_thread` (Normal) | in_process | @slow | added ✓ |
+| E14 | Native Library Failure | `segfault` (Normal) | isolated | @crash | added ✓ |
 
 **Key comparisons:** E08 (caught) vs E14 (not caught); E09 (BEAM-blind leak)
 vs E10 (BEAM-GC'd resource).
@@ -49,9 +49,9 @@ shutdown — and what doesn't.
 
 | ID | Name | NIF/Port | Mode | Tags | Status |
 |----|------|----------|------|------|--------|
-| E15 | Caller Dies Mid-Execution | `cpu_work_ms` | in_process | @slow | pending |
-| E16 | Node Shutdown During Work | `cpu_work_ms` | isolated | @crash @slow | pending |
-| E17 | Port vs NIF vs Dirty | `cpu_work` + `lab_port` | in_process | @slow | pending |
+| E15 | Caller Dies Mid-Execution | `cpu_work_ms` (workload fn) | in_process | @slow | added ✓ |
+| E16 | Node Shutdown During Work | `cpu_work_ms` | isolated | @crash @slow | added ✓ |
+| E17 | Port vs NIF vs Dirty | `cpu_work` via `lab_port` | in_process | @slow | added ✓ |
 
 **Key comparison:** E17 is the canonical "which architecture survives a
 crash?" comparison — NIF vs Dirty NIF vs Port, same workload, same crash.
@@ -62,8 +62,8 @@ These experiments probe the practical limits of the NIF mechanism.
 
 | ID | Name | NIF | Mode | Tags | Status |
 |----|------|-----|------|------|--------|
-| E18 | Large Binary Transfer | `large_binary_mb` (Normal) | in_process | @slow | pending |
-| E19 | Scheduler Saturation Curve | `cpu_work_ms` (Normal+Dirty) | in_process | @slow | pending |
+| E18 | Large Binary Transfer | `large_binary_mb` (Normal) | in_process | @slow | added ✓ |
+| E19 | Scheduler Saturation Curve | `cpu_work_ms` (Normal+Dirty) | in_process | @slow | added ✓ |
 
 **Key outputs:** E18 produces a size-vs-time curve; E19 produces a
 concurrency-vs-latency curve for both normal and dirty schedulers.
@@ -75,8 +75,8 @@ stress to something production-like.
 
 | ID | Name | Stack | Mode | Tags | Status |
 |----|------|-------|------|------|--------|
-| E20 | Oban Interaction | Oban + Postgres + Ecto | in_process | @slow @oban | pending |
-| E21 | Real PDF Workload | `pdfium-render` + Oban | in_process | @slow @oban @pdf | pending |
+| E20 | Oban Interaction | `cpu_work_ms_dirty` via Oban | in_process | @slow @oban | added ✓ |
+| E21 | Real PDF Workload | `pdf_work_dirty` (NIF) + `lab_port` | in_process | @slow @oban @pdf | added ✓ |
 
 **Key comparison:** E21 compares NIF, Dirty NIF, and Port on a real PDF
 workload at 1000 concurrent jobs — the closest to production of any experiment.

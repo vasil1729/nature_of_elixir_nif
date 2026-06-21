@@ -274,11 +274,11 @@ e##_test.exs}`, verifies via `scripts/run_experiment.sh E##` or UI.
 - [x] **Phase 2 commit 14:** CatalogLive + RunLive
 - [x] **Phase 2 commit 15:** executor + HistoryLive + ReportLive + DocsLive
 - [x] **Phase 2 commit 16:** ExUnit template + assertion helpers
-- [ ] **Phase 3 commits 17–37:** Experiments E01–E21
-- [ ] **Phase 4 commit 38:** Catalog filled + charts
-- [ ] **Phase 4 commit 39:** FINAL_REPORT.md
+- [x] **Phase 3 commits 17–37:** Experiments E01–E21
+- [x] **Phase 4 commit 38:** Catalog filled + charts
+- [x] **Phase 4 commit 39:** FINAL_REPORT.md
 
-**Currently executing:** Phase 3 commits 17–37 — Experiments E01–E21
+**Currently executing:** All phases complete. Awaiting experiment runs to populate evidence blocks in FINAL_REPORT.md.
 
 ---
 
