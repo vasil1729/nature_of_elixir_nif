@@ -34,6 +34,7 @@ defmodule Lab.Web.MixProject do
       {:postgrex, "~> 0.19"},
       {:oban, "~> 2.18"},
       {:jason, "~> 1.4"},
+      {:earmark, "~> 1.4"},
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.1"},
       {:lab_core, in_umbrella: true},

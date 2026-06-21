@@ -37,7 +37,7 @@ defmodule LabWeb.DocsLive do
       <div>
         <%= if @content do %>
           <h3><%= @selected %></h3>
-          <pre style="white-space: pre-wrap; font-family: monospace;"><%= @content %></pre>
+          <div style="max-width: 900px;"><%= if @content, do: Phoenix.HTML.raw(@content), else: "" %></div>
         <% else %>
           <p>Select a document from the left.</p>
           <p>Full documentation index: <a href="/docs/INDEX">docs/INDEX.md</a></p>
@@ -58,7 +58,7 @@ defmodule LabWeb.DocsLive do
   defp load_doc("adr") do
     candidate = Path.join(docs_root(), "adr/README.md")
     case File.read(candidate) do
-      {:ok, content} -> content
+      {:ok, content} -> render_markdown(content)
       _ -> nil
     end
   end
@@ -66,8 +66,15 @@ defmodule LabWeb.DocsLive do
   defp load_doc(path) do
     candidate = Path.join(docs_root(), "#{path}.md")
     case File.read(candidate) do
-      {:ok, content} -> content
+      {:ok, content} -> render_markdown(content)
       _ -> nil
+    end
+  end
+
+  defp render_markdown(text) do
+    case Earmark.as_html(text, %Earmark.Options{compact_output: true}) do
+      {:ok, html, _} -> html
+      _ -> "<pre>#{text}</pre>"
     end
   end
 
