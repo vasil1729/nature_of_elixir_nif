@@ -38,7 +38,8 @@ defmodule Lab.Web.MixProject do
       {:telemetry_poller, "~> 1.1"},
       {:lab_core, in_umbrella: true},
       {:lab_native, in_umbrella: true},
-      {:lab_port, in_umbrella: true}
+      {:lab_port, in_umbrella: true},
+      {:lab_runner, in_umbrella: true}
     ]
   end
 end
