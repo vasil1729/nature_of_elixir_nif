@@ -32,4 +32,7 @@ end
 # ExUnit: default excludes @slow/@crash/@oban/@pdf (opt-in per docs/06)
 config :lab_core, :test_excludes, [:slow, :crash, :oban, :pdf]
 
+# Disable telemetry console reporter in tests
+config :lab_web, :telemetry_reporter, false
+
 config :logger, level: :warning

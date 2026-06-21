@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BEAM Characterization Lab</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css" />
+    <style>
+      body { font-family: monospace; max-width: 1400px; margin: 0 auto; padding: 1rem; }
+      nav { display: flex; gap: 1rem; padding: 0.5rem 0; border-bottom: 1px solid #ccc; }
+      nav a { text-decoration: none; }
+      nav a.active { font-weight: bold; }
+      .metric-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; }
+      .scheduler-bars { display: flex; flex-direction: column; gap: 4px; }
+      .scheduler-bar { display: flex; align-items: center; gap: 8px; }
+      .scheduler-bar-fill { height: 20px; background: #4caf50; transition: width 0.1s; }
+      .scheduler-bar-fill.dirty { background: #ff9800; }
+      .scheduler-bar-fill.blocked { background: #f44336; }
+      .assertion-pass { color: #4caf50; }
+      .assertion-fail { color: #f44336; }
+      .banner { padding: 1rem; background: #fff3cd; border: 1px solid #ffeaa7; margin: 1rem 0; }
+      .banner.danger { background: #fde8e8; border-color: #f44336; }
+      .chart-container { position: relative; height: 200px; margin: 1rem 0; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  </head>
+  <body class="h-full">
+    <header>
+      <h1>BEAM Characterization Lab</h1>
+      <nav>
+        <a href="/">Dashboard</a>
+        <a href="/catalog">Catalog</a>
+        <a href="/history">History</a>
+        <a href="/docs">Docs</a>
+      </nav>
+    </header>
+    <main>
+      <%= @inner_content %>
+    </main>
+    <footer>
+      <p><small>BEAM Characterization Lab — evidence over folklore</small></p>
+    </footer>
+  </body>
+</html>

@@ -29,6 +29,7 @@ defmodule Lab.Web.MixProject do
       {:phoenix_html, "~> 4.0"},
       {:phoenix_pubsub, "~> 2.1"},
       {:plug_cowboy, "~> 2.7"},
+      {:gettext, "~> 0.26"},
       {:ecto_sql, "~> 3.12"},
       {:postgrex, "~> 0.19"},
       {:oban, "~> 2.18"},
