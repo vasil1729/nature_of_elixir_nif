@@ -55,8 +55,13 @@ defmodule LabWeb.DocsLive do
        12_glossary 13_runbook)
   end
 
-  defp load_doc("adr" = path), do: load_doc("adr/README")
-  defp load_doc("adr/" <> rest), do: load_doc(rest)
+  defp load_doc("adr") do
+    candidate = Path.join(docs_root(), "adr/README.md")
+    case File.read(candidate) do
+      {:ok, content} -> content
+      _ -> nil
+    end
+  end
 
   defp load_doc(path) do
     candidate = Path.join(docs_root(), "#{path}.md")
