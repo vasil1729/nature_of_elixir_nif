@@ -267,7 +267,7 @@ e##_test.exs}`, verifies via `scripts/run_experiment.sh E##` or UI.
 - [x] **Phase 1 commit 7:** lab_native Rustler crate
 - [x] **Phase 1 commit 8:** lab_port Rust binary
 - [x] **Phase 1 commit 9:** lab_web Phoenix LiveView scaffold
-- [ ] **Phase 1 commit 10:** lab_runner CLI
+- [x] **Phase 1 commit 10:** lab_runner CLI
 - [ ] **Phase 1 commit 11:** scripts/
 - [ ] **Phase 1 commit 12:** CI workflow
 - [ ] **Phase 2 commit 13:** DashboardLive
@@ -278,7 +278,7 @@ e##_test.exs}`, verifies via `scripts/run_experiment.sh E##` or UI.
 - [ ] **Phase 4 commit 38:** Catalog filled + charts
 - [ ] **Phase 4 commit 39:** FINAL_REPORT.md
 
-**Currently executing:** Phase 1 commit 10 — lab_runner CLI
+**Currently executing:** Phase 1 commit 11 — scripts/
 
 ---
 
