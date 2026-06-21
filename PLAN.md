@@ -270,7 +270,7 @@ e##_test.exs}`, verifies via `scripts/run_experiment.sh E##` or UI.
 - [x] **Phase 1 commit 10:** lab_runner CLI
 - [x] **Phase 1 commit 11:** scripts/
 - [ ] **Phase 1 commit 12:** CI workflow
-- [ ] **Phase 2 commit 13:** DashboardLive
+- [x] **Phase 2 commit 13:** DashboardLive
 - [ ] **Phase 2 commit 14:** CatalogLive + RunLive
 - [ ] **Phase 2 commit 15:** executor + HistoryLive + ReportLive + DocsLive
 - [ ] **Phase 2 commit 16:** ExUnit template + assertion helpers
@@ -278,7 +278,7 @@ e##_test.exs}`, verifies via `scripts/run_experiment.sh E##` or UI.
 - [ ] **Phase 4 commit 38:** Catalog filled + charts
 - [ ] **Phase 4 commit 39:** FINAL_REPORT.md
 
-**Currently executing:** Phase 1 commit 12 — CI workflow
+**Currently executing:** Phase 2 commit 14 — CatalogLive + RunLive
 
 ---
 
