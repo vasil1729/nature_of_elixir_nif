@@ -67,14 +67,15 @@ defmodule LabWeb.DashboardLive do
     <% end %>
 
     <div class="metric-grid">
-      <.metric_card label="Process Count" value={@process_count} />
-      <.metric_card label="Run Queue" value={@run_queue} />
-      <.metric_card label="Memory" value={div(@beam_memory, 1024 * 1024)} unit="MB" />
-      <.metric_card label="Binary Memory" value={div(@beam_binary_memory, 1024 * 1024)} unit="MB" />
-      <.metric_card label="RSS" value={if @rss_kb, do: div(@rss_kb, 1024), else: "—"} unit="MB" />
-      <.metric_card label="Threads" value={@threads || "—"} />
+      <.metric_card label="Processes" value={@process_count} status={proc_status(@process_count)} />
+      <.metric_card label="Run Queue" value={@run_queue} status={rq_status(@run_queue)} />
+      <.metric_card label="BEAM Memory" value={div(@beam_memory, 1024 * 1024)} unit="MB" />
+      <.metric_card label="Binary Mem" value={div(@beam_binary_memory, 1024 * 1024)} unit="MB" />
+      <.metric_card label="RSS" value={if @rss_kb, do: div(@rss_kb, 1024), else: "—"} unit="MB" status={rss_status(@rss_kb)} />
+      <.metric_card label="OS Threads" value={@threads || "—"} />
       <.metric_card label="Schedulers" value={@scheduler_count} />
       <.metric_card label="Dirty CPU" value={@dirty_cpu_count} />
+      <.metric_card label="Dirty IO" value={@dirty_io_count} />
     </div>
 
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
@@ -90,10 +91,14 @@ defmodule LabWeb.DashboardLive do
     <%= if @latency_window do %>
       <h3>Latency</h3>
       <div class="metric-grid">
-        <.metric_card label="p50" value={if @latency_window[:p50_us], do: Float.round(@latency_window.p50_us / 1000, 2), else: "—"} unit="ms" />
-        <.metric_card label="p99" value={if @latency_window[:p99_us], do: Float.round(@latency_window.p99_us / 1000, 2), else: "—"} unit="ms" />
+        <.metric_card label="p50" value={if @latency_window[:p50_us], do: Float.round(@latency_window.p50_us / 1000, 2), else: "—"} unit="ms" status={lat_status(@latency_window[:p99_us])} />
+        <.metric_card label="p99" value={if @latency_window[:p99_us], do: Float.round(@latency_window.p99_us / 1000, 2), else: "—"} unit="ms" status={lat_status(@latency_window[:p99_us])} />
         <.metric_card label="max" value={if @latency_window[:max_us], do: Float.round(@latency_window.max_us / 1000, 2), else: "—"} unit="ms" />
         <.metric_card label="samples" value={@latency_window[:count] || 0} />
+      </div>
+
+      <div class="chart-container" style="height: 200px;">
+        <canvas id="latency-chart" phx-hook="LatencyChartHook"></canvas>
       </div>
     <% end %>
 
@@ -131,7 +136,27 @@ defmodule LabWeb.DashboardLive do
 
   def handle_info({:latency_window, metrics, _meta}, socket) do
     history = [metrics | socket.assigns.latency_history] |> Enum.take(100)
-    {:noreply, assign(socket, :latency_window, metrics) |> assign(:latency_history, history)}
+    {:noreply,
+     socket
+     |> assign(:latency_window, metrics)
+     |> assign(:latency_history, history)
+     |> put_latency_history_js(history)}
+  end
+
+  defp put_latency_history_js(socket, history) do
+    if connected?(socket) do
+      # Push to client via JS hook
+      Phoenix.LiveView.push_event(socket, "latency-history-update", %{
+        history: Enum.map(history, fn h ->
+          %{
+            p50: h.p50_us && div(h.p50_us, 1000),
+            p99: h.p99_us && div(h.p99_us, 1000),
+            max: h.max_us && div(h.max_us, 1000)
+          }
+        end)
+      })
+    end
+    socket
   end
 
   def handle_info({:latency, _metrics, _meta}, socket) do
@@ -178,4 +203,22 @@ defmodule LabWeb.DashboardLive do
     base = :erlang.system_info(:schedulers)
     Enum.map(1..count, fn id -> {base + id, 0.0} end)
   end
+
+  # -- Status helpers --
+  defp proc_status(count) when count > 10000, do: :warn
+  defp proc_status(_), do: :good
+
+  defp rq_status(q) when q > 10, do: :danger
+  defp rq_status(q) when q > 3, do: :warn
+  defp rq_status(_), do: :good
+
+  defp rss_status(nil), do: :neutral
+  defp rss_status(rss) when rss > 3_500_000, do: :danger
+  defp rss_status(rss) when rss > 2_000_000, do: :warn
+  defp rss_status(_), do: :good
+
+  defp lat_status(nil), do: :neutral
+  defp lat_status(p99_us) when p99_us > 50_000, do: :danger
+  defp lat_status(p99_us) when p99_us > 10_000, do: :warn
+  defp lat_status(_), do: :good
 end

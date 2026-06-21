@@ -11,11 +11,25 @@
       nav a { text-decoration: none; }
       nav a.active { font-weight: bold; }
       .metric-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; }
-      .scheduler-bars { display: flex; flex-direction: column; gap: 4px; }
-      .scheduler-bar { display: flex; align-items: center; gap: 8px; }
-      .scheduler-bar-fill { height: 20px; background: #4caf50; transition: width 0.1s; }
-      .scheduler-bar-fill.dirty { background: #ff9800; }
-      .scheduler-bar-fill.blocked { background: #f44336; }
+      .metric-card { padding: 1rem; border-radius: 8px; border: 1px solid #e0e0e0; background: #fafafa; }
+      .metric-card.status-good { border-left: 4px solid #4caf50; }
+      .metric-card.status-warn { border-left: 4px solid #ff9800; }
+      .metric-card.status-danger { border-left: 4px solid #f44336; }
+      .metric-label { font-size: 0.85rem; color: #666; margin-bottom: 0.25rem; }
+      .metric-value { font-size: 1.5rem; font-weight: 600; }
+      .metric-value small { font-size: 0.7rem; color: #999; margin-left: 4px; }
+      .metric-trend { font-size: 0.75rem; color: #4caf50; margin-top: 0.25rem; }
+
+      .scheduler-bars { display: flex; flex-direction: column; gap: 6px; }
+      .scheduler-bar { display: flex; align-items: center; gap: 12px; }
+      .scheduler-id { width: 50px; font-size: 0.8rem; color: #666; font-family: monospace; }
+      .scheduler-bar-track { flex: 1; height: 24px; background: #e0e0e0; border-radius: 12px; overflow: hidden; position: relative; }
+      .scheduler-bar-fill { height: 100%; border-radius: 12px; transition: width 0.3s ease; }
+      .scheduler-bar-fill.normal { background: linear-gradient(90deg, #66bb6a, #4caf50); }
+      .scheduler-bar-fill.dirty-cpu { background: linear-gradient(90deg, #ffb74d, #ff9800); }
+      .scheduler-bar-fill.dirty-io { background: linear-gradient(90deg, #64b5f6, #2196f3); }
+      .scheduler-bar-fill.blocked { background: linear-gradient(90deg, #ef5350, #e53935); }
+      .scheduler-pct { width: 55px; text-align: right; font-size: 0.8rem; color: #666; font-family: monospace; }
       .assertion-pass { color: #4caf50; }
       .assertion-fail { color: #f44336; }
       .banner { padding: 1rem; background: #fff3cd; border: 1px solid #ffeaa7; margin: 1rem 0; }
@@ -32,8 +46,48 @@
         }
       }
       document.addEventListener("DOMContentLoaded", runMermaid);
-      // Re-run after LiveView content swaps (plain <a> navigations remount the LV)
       document.addEventListener("phx:page-loading-stop", runMermaid);
+
+      // Latency chart hook
+      window.LatencyChartHook = {
+        mounted() {
+          const ctx = this.el.getContext('2d');
+          this.chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels: [],
+              datasets: [
+                {label: 'p50 (ms)', data: [], borderColor: '#4caf50', fill: false, tension: 0.2},
+                {label: 'p99 (ms)', data: [], borderColor: '#ff9800', fill: false, tension: 0.2},
+                {label: 'max (ms)', data: [], borderColor: '#f44336', fill: false, tension: 0.2}
+              ]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              animation: {duration: 300},
+              scales: {
+                y: {beginAtZero: true, title: {display: true, text: 'ms'}},
+                x: {display: false}
+              },
+              plugins: {legend: {display: true, position: 'top'}}
+            }
+          });
+
+          // Listen for latency history updates from LiveView
+          this.handleEvent("latency-history-update", ({history}) => {
+            window.latencyHistory = history;
+            if (this.chart) {
+              const labels = history.map((_, i) => i);
+              this.chart.data.labels = labels;
+              this.chart.data.datasets[0].data = history.map(h => h.p50 ?? null);
+              this.chart.data.datasets[1].data = history.map(h => h.p99 ?? null);
+              this.chart.data.datasets[2].data = history.map(h => h.max ?? null);
+              this.chart.update('none');
+            }
+          });
+        }
+      };
     </script>
   </head>
   <body class="h-full">

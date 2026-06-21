@@ -1,10 +1,6 @@
 defmodule LabWeb.Components.SchedulerBar do
   @moduledoc """
-  Renders a per-scheduler utilization bar.
-
-  Each scheduler gets a horizontal bar showing its utilization (0-100%).
-  Normal schedulers are green; dirty CPU schedulers are orange; dirty IO
-  schedulers are blue. Blocked schedulers (100% for > 1s) turn red.
+  Renders a per-scheduler utilization bar with smooth transitions.
   """
 
   use Phoenix.Component
@@ -18,12 +14,14 @@ defmodule LabWeb.Components.SchedulerBar do
     <div class="scheduler-bars">
       <h4><%= @label %></h4>
       <%= for {id, util} <- @schedulers do %>
-        <div class="scheduler-bar">
-          <span style="width: 30px;"><%= id %></span>
-          <div class={"scheduler-bar-fill #{bar_class(util, @kind)}"}
-               style={"width: #{trunc(util * 100)}px;"}>
+        <div class="scheduler-bar" id={"scheduler-bar-#{id}"} phx-update="ignore">
+          <span class="scheduler-id"><%= "S#{id}" %></span>
+          <div class="scheduler-bar-track">
+            <div class={"scheduler-bar-fill #{bar_class(util, @kind)}"}
+                 style={"width: #{trunc(util * 100)}%; transition: width 0.3s ease;"}>
+            </div>
           </div>
-          <span><%= Float.round(util * 100, 1) %>%</span>
+          <span class="scheduler-pct"><%= Float.round(util * 100, 1) %>%</span>
         </div>
       <% end %>
     </div>
@@ -31,7 +29,7 @@ defmodule LabWeb.Components.SchedulerBar do
   end
 
   defp bar_class(util, _kind) when util >= 0.99, do: "blocked"
-  defp bar_class(_util, :dirty_cpu), do: "dirty"
-  defp bar_class(_util, :dirty_io), do: "dirty"
-  defp bar_class(_util, :normal), do: ""
+  defp bar_class(_util, :dirty_cpu), do: "dirty-cpu"
+  defp bar_class(_util, :dirty_io), do: "dirty-io"
+  defp bar_class(_util, :normal), do: "normal"
 end
