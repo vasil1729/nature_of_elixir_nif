@@ -4,33 +4,69 @@ defmodule LabWeb.DocsLive do
   @moduledoc """
   Browse docs/*.md in-browser.
 
-  Phase 2 (commit 15) fills in the docs browser with markdown rendering.
+  Lists all documentation files and renders the selected one as
+  preformatted text. Full markdown rendering would require an external
+  library; preformatted is sufficient for a research lab.
   """
 
   @impl true
+  def mount(%{"path" => path}, _session, socket) do
+    content = load_doc(path)
+    {:ok, socket |> assign(:docs, list_docs()) |> assign(:selected, path) |> assign(:content, content)}
+  end
+
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, :docs, list_docs())}
+    {:ok, socket |> assign(:docs, list_docs()) |> assign(:selected, nil) |> assign(:content, nil)}
   end
 
   @impl true
   def render(assigns) do
     ~H"""
     <h2>Documentation</h2>
-    <p>Browse lab documentation in-browser. Phase 2 (commit 15) adds markdown rendering.</p>
 
-    <ul>
-      <%= for doc <- @docs do %>
-        <li><a href={"/docs/#{doc}"}><%= doc %></a></li>
-      <% end %>
-    </ul>
+    <div style="display: grid; grid-template-columns: 250px 1fr; gap: 2rem;">
+      <div>
+        <ul>
+          <%= for doc <- @docs do %>
+            <li><a href={"/docs/#{doc}"}><%= doc %></a></li>
+          <% end %>
+          <li><a href="/docs/adr">ADR index</a></li>
+        </ul>
+      </div>
+      <div>
+        <%= if @content do %>
+          <h3><%= @selected %></h3>
+          <pre style="white-space: pre-wrap; font-family: monospace;"><%= @content %></pre>
+        <% else %>
+          <p>Select a document from the left.</p>
+          <p>Full documentation index: <a href="/docs/INDEX">docs/INDEX.md</a></p>
+        <% end %>
+      </div>
+    </div>
     """
   end
 
   defp list_docs do
-    ["00_charter", "01_beam_scheduler_model", "02_nif_taxonomy_rustler",
-     "03_measurement_protocol", "04_experiment_catalog", "05_safety_isolation",
-     "06_reproducibility_protocol", "07_ui_architecture", "08_final_report_rubric",
-     "09_architecture", "10_development_guide", "11_commit_convention",
-     "12_glossary", "13_runbook"]
+    ~w(00_charter 01_beam_scheduler_model 02_nif_taxonomy_rustler
+       03_measurement_protocol 04_experiment_catalog 05_safety_isolation
+       06_reproducibility_protocol 07_ui_architecture 08_final_report_rubric
+       09_architecture 10_development_guide 11_commit_convention
+       12_glossary 13_runbook)
+  end
+
+  defp load_doc(path) do
+    # Handle adr/ subdirectory
+    full_path =
+      if String.starts_with?(path, "adr/") do
+        "docs/#{path}.md"
+      else
+        "docs/#{path}.md"
+      end
+
+    File.read(full_path)
+    |> case do
+      {:ok, content} -> content
+      _ -> nil
+    end
   end
 end
