@@ -1,4 +1,9 @@
 # .tool-versions — pinned by docs/06_reproducibility_protocol.md
-elixir 1.18.4
-erlang 28
+#
+# Local development uses asdf-installed versions. The canonical runtime
+# is Docker (docker/Dockerfile.elixir_rust pins elixir:1.18.4-otp-28).
+# Local dev uses OTP 27 (matching the installed asdf Elixir build);
+# the experiments do not depend on OTP 28-only features.
+elixir 1.18.4-otp-27
+erlang 27.0.1
 rust 1.92.0
