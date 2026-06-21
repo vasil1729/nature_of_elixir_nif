@@ -6,8 +6,10 @@
 //! Protocol spec: docs/09_architecture.md
 //! Used by: E17 (crash isolation comparison), E21 (PDF Port arm)
 //!
-//! Commands (added per-experiment):
-//!   cpu_work  — CPU-bound work for `ms` milliseconds (shared with NIF E01)
+//! Commands:
+//!   cpu_work  — CPU-bound work for `ms` milliseconds (E01 equivalent, used by E17)
+//!   segfault  — deliberate segfault — kills this process only (E17 crash isolation)
+//!   pdf_work  — simulated PDF render (cpu_work alias, used by E21 port arm)
 //!   quit      — clean shutdown
 
 use serde::{Deserialize, Serialize};
@@ -89,6 +91,28 @@ fn main() {
                 let elapsed = start.elapsed().as_millis() as u64;
                 let resp = Response::ok_with_duration(&id, elapsed);
                 let _ = writeln!(out, "{}", serde_json::to_string(&resp).unwrap());
+            }
+
+            // pdf_work is an alias for cpu_work — same CPU-bound workload
+            // used by E21's port arm to compare against the NIF arm.
+            "pdf_work" => {
+                let ms = req.ms.unwrap_or(1000);
+                let start = Instant::now();
+                cpu_work_impl(ms);
+                let elapsed = start.elapsed().as_millis() as u64;
+                let resp = Response::ok_with_duration(&id, elapsed);
+                let _ = writeln!(out, "{}", serde_json::to_string(&resp).unwrap());
+            }
+
+            // Intentional segfault — demonstrates that a port crash does NOT
+            // kill the calling BEAM process (unlike a NIF segfault). E17.
+            "segfault" => {
+                // Flush so the parent knows we acknowledged the request.
+                let _ = out.flush();
+                unsafe {
+                    let p: *mut u8 = std::ptr::null_mut();
+                    std::ptr::write_volatile(p, 1);
+                }
             }
 
             "quit" => break,
