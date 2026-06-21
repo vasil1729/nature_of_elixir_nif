@@ -1,0 +1,4 @@
+# .tool-versions — pinned by docs/06_reproducibility_protocol.md
+elixir 1.18.4
+erlang 28
+rust 1.92.0

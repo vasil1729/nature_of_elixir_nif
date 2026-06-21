@@ -1,0 +1,63 @@
+services:
+  # =============================================================================
+  # lab — Phoenix LiveView control room + CLI runner
+  # =============================================================================
+  lab:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.elixir_rust
+    image: beam-lab:latest
+    container_name: beam-lab
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "4000:4000"   # Phoenix LiveView control room
+    # Containment (ADR 0005, docs/05_safety_isolation.md)
+    mem_limit: 4g
+    memswap_limit: 4g
+    pids_limit: 8192
+    ulimits:
+      nofile:
+        soft: 4096
+        hard: 4096
+    cap_drop:
+      - ALL
+    # /proc is read by lab_core.SystemProbe; keep it visible
+    volumes:
+      - lab_data:/app/data
+    environment:
+      MIX_ENV: prod
+      DATABASE_URL: postgres://lab:lab@postgres:5432/lab
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:-lab_secret_key_base_for_research_only_not_production}
+      PHX_HOST: localhost
+      PHX_SERVER: "true"
+    restart: unless-stopped
+    # Keep stdin open so `docker compose exec lab scripts/run_experiment.sh` works
+    stdin_open: true
+    tty: true
+
+  # =============================================================================
+  # postgres — Oban job queue (E20/E21) + run history storage (UI)
+  # =============================================================================
+  postgres:
+    image: postgres:16-bookworm
+    container_name: beam-lab-postgres
+    environment:
+      POSTGRES_USER: lab
+      POSTGRES_PASSWORD: lab
+      POSTGRES_DB: lab
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lab -d lab"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  lab_data:
+  pgdata:

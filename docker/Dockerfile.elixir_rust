@@ -1,0 +1,106 @@
+# syntax=docker/dockerfile:1.7
+
+# =============================================================================
+# Stage 1: Rust builder — compiles lab_native (.so) and lab_port (binary)
+# =============================================================================
+FROM rust:1.92-slim-bookworm AS rust-builder
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      build-essential pkg-config libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+
+# Pre-copy Cargo manifests to cache deps layer
+COPY umbrella/apps/lab_native/native/Cargo.toml ./lab_native/Cargo.toml
+COPY umbrella/apps/lab_native/native/Cargo.lock ./lab_native/Cargo.lock 2>/dev/null || true
+COPY umbrella/apps/lab_port/native/Cargo.toml    ./lab_port/Cargo.toml
+COPY umbrella/apps/lab_port/native/Cargo.lock    ./lab_port/Cargo.lock 2>/dev/null || true
+
+# Create stub lib.rs/main.rs so cargo can fetch deps without real sources
+RUN mkdir -p lab_native/src lab_port/src \
+ && echo 'fn main() {}' > lab_native/src/lib.rs \
+ && echo 'fn main() {}' > lab_port/src/main.rs
+
+# Fetch deps (cached layer)
+RUN cargo fetch --manifest-path lab_native/Cargo.toml || true
+RUN cargo fetch --manifest-path lab_port/Cargo.toml || true
+
+# Now copy real sources and build
+COPY umbrella/apps/lab_native/native/src ./lab_native/src
+COPY umbrella/apps/lab_port/native/src    ./lab_port/src
+
+RUN cargo build --release --manifest-path lab_native/Cargo.toml
+RUN cargo build --release --manifest-path lab_port/Cargo.toml
+
+# =============================================================================
+# Stage 2: pdfium fetch (separate so it caches independently)
+# =============================================================================
+FROM debian:bookworm-slim AS pdfium-fetcher
+
+# Pinned pdfium binary. Update version here for reproducibility.
+ARG PDFIUM_VERSION=chromium-6767
+ARG PDFIUM_ARCH=linux-x64
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      ca-certificates curl libarchive-tools \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /pdfium \
+ && curl -fsSL \
+      "https://github.com/bblanchon/pdfium-binaries/releases/download/${PDFIUM_VERSION}/${PDFIUM_ARCH}.tgz" \
+    | bsdtar -xvf- -C /pdfium \
+ && ls /pdfium
+
+# =============================================================================
+# Stage 3: Elixir runtime — runs Phoenix + mix test
+# =============================================================================
+FROM elixir:1.18.4-otp-28-slim-bookworm AS elixir-runtime
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      build-essential pkg-config libssl-dev \
+      ca-certificates curl git \
+      # pdfium runtime libs
+      libstdc++6 \
+      # for SystemProbe: /proc is fine; procps for ps
+      procps \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy the umbrella project
+COPY umbrella ./umbrella
+COPY .tool-versions ./umbrella/.tool-versions
+
+# Copy Rust build artifacts into the apps' priv/native/
+COPY --from=rust-builder /build/lab_native/target/release/liblab_native.so \
+     ./umbrella/apps/lab_native/priv/native/liblab_native.so
+COPY --from=rust-builder /build/lab_port/target/release/lab_port \
+     ./umbrella/apps/lab_port/priv/native/lab_port
+
+# Copy pdfium library
+COPY --from=pdfium-fetcher /pdfium/lib/libpdfium.so \
+     ./umbrella/apps/lab_native/priv/native/libpdfium.so
+
+ENV PDFIUM_LIB_PATH=/app/umbrella/apps/lab_native/priv/native/libpdfium.so
+
+# Install hex + rebar
+RUN mix local.hex --force && mix local.rebar --force
+
+# Fetch and compile Elixir deps + apps
+WORKDIR /app/umbrella
+RUN mix deps.get
+RUN mix compile
+
+# Expose Phoenix
+EXPOSE 4000
+
+# Scheduler flags pinned everywhere (ADR 0005, docs/09)
+ENV ERL_FLAGS="+S 4:4 +SDcpu 4:4 +SDio 4:4 +A 10 +sbwt none +sbwtdcpu none +sbwtdio none"
+
+# Entrypoint runs migrations (for Oban) and starts Phoenix
+COPY docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["phx.server"]
