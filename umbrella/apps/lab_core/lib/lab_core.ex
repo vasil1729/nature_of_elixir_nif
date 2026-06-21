@@ -37,6 +37,13 @@ defmodule Lab.Core do
     data_path = Keyword.get(opts, :data_path, default_data_path(experiment_id))
     File.mkdir_p!(data_path)
 
+    # Ensure the process registry exists (idempotent)
+    case Registry.start_link(name: Lab.Core.Registry, keys: :unique) do
+      {:ok, _} -> :ok
+      {:error, {:already_started, _}} -> :ok
+      {:error, _} = e -> raise inspect(e)
+    end
+
     children = [
       {Lab.Core.Sampler, [experiment_id: experiment_id, data_path: data_path]},
       {Lab.Core.LatencyProbe, [experiment_id: experiment_id, data_path: data_path]},

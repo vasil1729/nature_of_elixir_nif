@@ -179,6 +179,7 @@ defmodule LabWeb.RunLive do
     end
   end
 
+  defp default_params(nil), do: %{}
   defp default_params(config) do
     config
     |> Map.get(:params, %{})

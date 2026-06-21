@@ -34,7 +34,10 @@ defmodule Lab.Core.Sampler do
 
     {:ok, writer} = Lab.Core.JsonlWriter.start_link(Path.join(data_path, "sampler.jsonl"))
 
-    # Prime scheduler_wall_time so the first sample has a diff baseline.
+    # Enable scheduler_wall_time (OTP 27+ requires explicit flag at runtime)
+    :erlang.system_flag(:scheduler_wall_time, true)
+
+    # Prime so the first sample has a diff baseline.
     :erlang.statistics(:scheduler_wall_time)
 
     state = %{
@@ -74,7 +77,7 @@ defmodule Lab.Core.Sampler do
 
   @doc false
   def take_sample(state) do
-    {:scheduler_wall_time, entries} = :erlang.statistics(:scheduler_wall_time)
+    entries = :erlang.statistics(:scheduler_wall_time)
 
     {normal_util, dirty_cpu_util, dirty_io_util} =
       compute_utils(entries, state.prev && state.prev.sched_util_raw)
@@ -83,7 +86,7 @@ defmodule Lab.Core.Sampler do
     dirty_cpu_count = :erlang.system_info(:dirty_cpu_schedulers)
     dirty_io_count = :erlang.system_info(:dirty_io_schedulers)
 
-    {:garbage_collection, gc_count, words_reclaimed, _} =
+    {gc_count, words_reclaimed, _} =
       :erlang.statistics(:garbage_collection)
 
     %Lab.Core.Metrics{
@@ -92,12 +95,12 @@ defmodule Lab.Core.Sampler do
       dirty_cpu_count: dirty_cpu_count,
       dirty_io_count: dirty_io_count,
       online_schedulers: :erlang.system_info(:schedulers_online),
-      sched_util: normal_util,
-      dirty_cpu_util: dirty_cpu_util,
-      dirty_io_util: dirty_io_util,
+      sched_util: Map.new(normal_util),
+      dirty_cpu_util: Map.new(dirty_cpu_util),
+      dirty_io_util: Map.new(dirty_io_util),
       run_queue: :erlang.statistics(:run_queue),
       process_count: :erlang.system_info(:process_count),
-      reductions: :erlang.statistics(:reductions),
+      reductions: elem(:erlang.statistics(:reductions), 0),
       gc_count: gc_count,
       words_reclaimed: words_reclaimed,
       beam_total_memory: :erlang.memory(:total),
@@ -128,8 +131,8 @@ defmodule Lab.Core.Sampler do
     dirty_cpu_max = normal_count + dirty_cpu_count
 
     {normal, dirty_cpu, dirty_io} =
-      Enum.reduce(entries, {[], [], []}, fn {id, busy, idle}, {n, dc, dio} ->
-        util = diff_util(id, busy, idle, prev)
+      Enum.reduce(entries, {[], [], []}, fn {id, active, total}, {n, dc, dio} ->
+        util = diff_util(id, active, total, prev)
 
         cond do
           id <= normal_max -> {[{id, util} | n], dc, dio}
@@ -141,16 +144,15 @@ defmodule Lab.Core.Sampler do
     {Enum.reverse(normal), Enum.reverse(dirty_cpu), Enum.reverse(dirty_io)}
   end
 
-  defp diff_util(_id, _busy, _idle, nil), do: 0.0
+  defp diff_util(_id, _active, _total, nil), do: 0.0
 
-  defp diff_util(id, busy, idle, prev) when is_list(prev) do
-    case Enum.find(prev, fn {pid, _} -> pid == id end) do
-      {^id, prev_busy, prev_idle} ->
-        db = busy - prev_busy
-        di = idle - prev_idle
-        total = db + di
+  defp diff_util(id, active, total, prev) when is_list(prev) do
+    case Enum.find(prev, fn {pid, _, _} -> pid == id end) do
+      {^id, prev_active, prev_total} ->
+        da = active - prev_active
+        dt = total - prev_total
 
-        if total > 0, do: db / total, else: 0.0
+        if dt > 0, do: da / dt, else: 0.0
 
       nil ->
         0.0

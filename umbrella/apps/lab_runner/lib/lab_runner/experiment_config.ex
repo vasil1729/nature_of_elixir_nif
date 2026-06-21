@@ -18,7 +18,10 @@ defmodule Lab.ExperimentConfig do
   See docs/10_development_guide.md and docs/06_reproducibility_protocol.md.
   """
 
-  @experiments_root "experiments"
+  defp experiments_root do
+    Application.get_env(:lab_runner, :experiments_root) ||
+      raise("Set config :lab_runner, :experiments_root in config.exs")
+  end
 
   @doc "Loads the config for experiment `id` (e.g. `:E02` or `\"E02\"`)."
   def load!(id) when is_atom(id) or is_binary(id) do
@@ -26,7 +29,7 @@ defmodule Lab.ExperimentConfig do
     dir = find_experiment_dir(id_str)
 
     if dir == nil do
-      raise "Experiment #{id_str} not found in #{@experiments_root}/"
+      raise "Experiment #{id_str} not found in #{experiments_root()}/"
     end
 
     config_path = Path.join(dir, "config.exs")
@@ -41,7 +44,7 @@ defmodule Lab.ExperimentConfig do
 
   @doc "Lists all experiment IDs found in the experiments/ directory."
   def list_ids do
-    Path.wildcard(Path.join([@experiments_root, "E*"]))
+    Path.wildcard(Path.join([experiments_root(), "E*"]))
     |> Enum.filter(&File.dir?/1)
     |> Enum.map(fn path ->
       Path.basename(path) |> String.split("_") |> List.first()
@@ -50,7 +53,7 @@ defmodule Lab.ExperimentConfig do
   end
 
   defp find_experiment_dir(id_str) do
-    Path.wildcard(Path.join([@experiments_root, "#{id_str}_*"]))
+    Path.wildcard(Path.join([experiments_root(), "#{id_str}_*"]))
     |> List.first()
   end
 end

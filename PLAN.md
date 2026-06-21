@@ -278,7 +278,7 @@ e##_test.exs}`, verifies via `scripts/run_experiment.sh E##` or UI.
 - [x] **Phase 4 commit 38:** Catalog filled + charts
 - [x] **Phase 4 commit 39:** FINAL_REPORT.md
 
-**Currently executing:** All phases complete. Awaiting experiment runs to populate evidence blocks in FINAL_REPORT.md.
+**Currently executing:** OTP 27 compatibility fixes + local dev workflow verified. See commit `fix: otp27 compat, local dev fixes`.
 
 ---
 

@@ -4,6 +4,15 @@ import Config
 # Shared config for all umbrella apps
 # =============================================================================
 
+root =
+  if File.dir?("experiments") do
+    Path.expand("experiments")
+  else
+    Path.expand("../experiments")
+  end
+
+config :lab_runner, :experiments_root, root
+
 config :logger, :console,
   level: String.to_atom(System.get_env("LOG_LEVEL", "info")),
   format: "$time $metadata[$level] $message\n",

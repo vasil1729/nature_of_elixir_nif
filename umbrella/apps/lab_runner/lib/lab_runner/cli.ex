@@ -21,7 +21,7 @@ defmodule Lab.Runner.CLI do
     end
 
     exp_id = String.to_atom(hd(rest))
-    params = parse_params(opts[:params] || [])
+    params = parse_params(Keyword.get_values(opts, :params))
 
     Logger.info("Running #{exp_id} with params=#{inspect(params)}")
 

@@ -5,16 +5,17 @@ import Config
 # is complete. This avoids "application not available" warnings during
 # incremental scaffold development.
 
-if Code.ensure_loaded?(LabWeb.Endpoint) do
-  config :lab_web, LabWeb.Endpoint,
-    url: [host: "localhost", port: 4000],
-    http: [ip: {0, 0, 0, 0}, port: 4000],
-    debug_errors: true,
-    code_reloader: true,
-    check_origin: false,
-    watchers: [],
-    live_view: [signing_salt: System.get_env("LIVE_VIEW_SALT", "lab_dev_salt_research_only")]
-end
+config :lab_web, :telemetry_reporter, false
+
+config :lab_web, LabWeb.Endpoint,
+  url: [host: "localhost", port: 4000],
+  http: [ip: {0, 0, 0, 0}, port: 4000],
+  secret_key_base: "lab_dev_secret_key_base_research_only_not_production",
+  debug_errors: true,
+  code_reloader: true,
+  check_origin: false,
+  watchers: [],
+  live_view: [signing_salt: System.get_env("LIVE_VIEW_SALT", "lab_dev_salt_research_only")]
 
 if Code.ensure_loaded?(Lab.Repo) do
   config :lab_runner, Lab.Repo,
