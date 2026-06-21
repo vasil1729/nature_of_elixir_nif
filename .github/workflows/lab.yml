@@ -1,0 +1,171 @@
+name: BEAM Lab CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  MIX_ENV: test
+
+jobs:
+  # =============================================================================
+  # Build — compile the Docker image and verify it
+  # =============================================================================
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker compose -f docker/docker-compose.yml build
+
+      - name: Start services
+        run: docker compose -f docker/docker-compose.yml up -d --wait
+
+      - name: Verify compilation
+        run: docker compose -f docker/docker-compose.yml exec -T lab mix compile --warnings-as-errors
+
+      - name: Stop services
+        if: always()
+        run: docker compose -f docker/docker-compose.yml down
+
+  # =============================================================================
+  # Fast tests — harness unit tests (no @slow/@crash/@oban/@pdf)
+  # =============================================================================
+  fast-test:
+    name: Fast Tests (harness)
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and start
+        run: |
+          docker compose -f docker/docker-compose.yml build
+          docker compose -f docker/docker-compose.yml up -d --wait
+
+      - name: Run fast tests
+        run: docker compose -f docker/docker-compose.yml exec -T lab mix test
+
+      - name: Upload build artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fast-test-results
+          path: umbrella/_build/test/
+          retention-days: 7
+
+      - name: Stop services
+        if: always()
+        run: docker compose -f docker/docker-compose.yml down
+
+  # =============================================================================
+  # Slow tests — characterization suite (@slow, non-crash experiments)
+  # =============================================================================
+  slow-test:
+    name: Slow Tests (characterization)
+    runs-on: ubuntu-latest
+    needs: fast-test
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and start
+        run: |
+          docker compose -f docker/docker-compose.yml build
+          docker compose -f docker/docker-compose.yml up -d --wait
+
+      - name: Run slow tests
+        run: docker compose -f docker/docker-compose.yml exec -T lab mix test --only slow
+        continue-on-error: true
+
+      - name: Upload metrics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: slow-test-metrics
+          path: data/
+          retention-days: 30
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: slow-test-reports
+          path: experiments/E*/report.md
+          retention-days: 30
+
+      - name: Stop services
+        if: always()
+        run: docker compose -f docker/docker-compose.yml down
+
+  # =============================================================================
+  # Crash tests — @crash experiments (E03, E08, E11, E14, E16)
+  # These intentionally kill the child BEAM. Longer timeout.
+  # =============================================================================
+  crash-test:
+    name: Crash Tests
+    runs-on: ubuntu-latest
+    needs: fast-test
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and start
+        run: |
+          docker compose -f docker/docker-compose.yml build
+          docker compose -f docker/docker-compose.yml up -d --wait
+
+      - name: Run crash tests
+        run: docker compose -f docker/docker-compose.yml exec -T lab mix test --only crash
+        continue-on-error: true
+
+      - name: Upload crash metrics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: crash-test-metrics
+          path: data/
+          retention-days: 30
+
+      - name: Stop services
+        if: always()
+        run: docker compose -f docker/docker-compose.yml down
+
+  # =============================================================================
+  # Oban tests — @oban experiments (E20, E21) — needs Postgres
+  # =============================================================================
+  oban-test:
+    name: Oban + PDF Tests
+    runs-on: ubuntu-latest
+    needs: slow-test
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and start
+        run: |
+          docker compose -f docker/docker-compose.yml build
+          docker compose -f docker/docker-compose.yml up -d --wait
+
+      - name: Run migrations
+        run: docker compose -f docker/docker-compose.yml exec -T lab mix ecto.migrate
+
+      - name: Run oban tests
+        run: docker compose -f docker/docker-compose.yml exec -T lab mix test --only oban
+        continue-on-error: true
+
+      - name: Upload oban metrics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: oban-test-metrics
+          path: data/
+          retention-days: 30
+
+      - name: Stop services
+        if: always()
+        run: docker compose -f docker/docker-compose.yml down
