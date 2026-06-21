@@ -24,6 +24,8 @@ defmodule LabWeb.RunLive do
       |> assign(:result, nil)
       |> assign(:error, nil)
       |> assign(:live_metrics, [])
+      |> assign(:started_at, nil)
+      |> assign(:elapsed_ms, 0)
 
     if connected?(socket) and config != nil do
       Phoenix.PubSub.subscribe(Lab.PubSub, Lab.Core.TelemetryPub.topic())
@@ -67,27 +69,50 @@ defmodule LabWeb.RunLive do
                      disabled={@running} />
             </label>
           <% end %>
-          <button type="submit" disabled={@running}>
-            <%= if @running, do: "Running...", else: "Run Experiment" %>
+          <button type="submit" disabled={@running} class={if @running, do: "running"}>
+            <%= if @running, do: "⏳ Running...", else: "▶ Run Experiment" %>
           </button>
         </form>
       <% else %>
         <form phx-submit="run">
-          <button type="submit" disabled={@running}>
-            <%= if @running, do: "Running...", else: "Run Experiment" %>
+          <button type="submit" disabled={@running} class={if @running, do: "running"}>
+            <%= if @running, do: "⏳ Running...", else: "▶ Run Experiment" %>
           </button>
         </form>
       <% end %>
 
       <%= if @running do %>
-        <h3>Live Metrics</h3>
-        <div class="metric-grid">
-          <%= for metric <- Enum.take(@live_metrics, -5) do %>
-            <div class="metric-card">
-              <div class="metric-label"><%= metric.label %></div>
-              <div class="metric-value"><%= metric.value %></div>
+        <div class="run-progress">
+          <div class="progress-header">
+            <span class="spinner"></span>
+            <span>Experiment running...</span>
+            <span class="elapsed">Elapsed: <%= format_elapsed(@elapsed_ms) %></span>
+          </div>
+
+          <h3>Live Metrics</h3>
+          <div class="metric-grid">
+            <.metric_card label="Run Queue" value={@live_sampler && @live_sampler.run_queue || "—"} status={rq_status(@live_sampler && @live_sampler.run_queue)} />
+            <.metric_card label="Processes" value={@live_sampler && @live_sampler.process_count || "—"} />
+            <.metric_card label="BEAM Mem (MB)" value={@live_sampler && @live_sampler.beam_memory_mb || "—"} />
+            <.metric_card label="Latency p99 (ms)" value={@live_latency && @live_latency[:p99_us] && Float.round(@live_latency.p99_us / 1000, 2) || "—"} status={lat_status(@live_latency && @live_latency[:p99_us])} />
+          </div>
+
+          <div class="scheduler-mini" style="margin-top: 1rem;">
+            <h4>Normal Schedulers</h4>
+            <div class="scheduler-bars">
+              <%= for {id, util} <- @live_sampler && @live_sampler.sched_util || [] do %>
+                <div class="scheduler-bar" id={"mini-bar-#{id}"} phx-update="ignore">
+                  <span class="scheduler-id"><%= "S#{id}" %></span>
+                  <div class="scheduler-bar-track">
+                    <div class={"scheduler-bar-fill #{bar_class(util, :normal)}"}
+                         style={"width: #{trunc(util * 100)}%; transition: width 0.3s ease;"}>
+                    </div>
+                  </div>
+                  <span class="scheduler-pct"><%= Float.round(util * 100, 1) %>%</span>
+                </div>
+              <% end %>
             </div>
-          <% end %>
+          </div>
         </div>
       <% end %>
 
@@ -101,6 +126,7 @@ defmodule LabWeb.RunLive do
         <h3>Results</h3>
         <div class={"banner #{if @result.assertion_fail > 0, do: "danger"}"}>
           <strong>Exit code:</strong> <%= @result.exit_code %> |
+          <strong>Duration:</strong> <%= format_elapsed(@result.work_result.duration_ms || @elapsed_ms) %> |
           <strong>Assertions:</strong> <%= @result.assertion_pass %> pass, <%= @result.assertion_fail %> fail
         </div>
 
@@ -114,7 +140,7 @@ defmodule LabWeb.RunLive do
               <tr>
                 <td><code><%= key %></code></td>
                 <td class={"assertion-#{if passed?, do: "pass", else: "fail"}"}>
-                  <%= if passed?, do: "PASS", else: "FAIL" %>
+                  <%= if passed?, do: "✅ PASS", else: "❌ FAIL" %>
                 </td>
               </tr>
             <% end %>
@@ -132,8 +158,20 @@ defmodule LabWeb.RunLive do
     config = socket.assigns.config
     parsed = parse_form_params(params, config)
     exp_id = socket.assigns.experiment_id
+    started_at = System.monotonic_time(:millisecond)
 
-    socket = assign(socket, :running, true) |> assign(:error, nil) |> assign(:result, nil) |> assign(:live_metrics, [])
+    socket = socket
+      |> assign(:running, true)
+      |> assign(:error, nil)
+      |> assign(:result, nil)
+      |> assign(:live_metrics, [])
+      |> assign(:started_at, started_at)
+      |> assign(:elapsed_ms, 0)
+
+    # Start elapsed timer
+    if connected?(socket) do
+      :timer.send_interval(500, :tick_elapsed)
+    end
 
     # Run in a task so the LiveView process doesn't block
     Task.Supervisor.async_nolink(LabWeb.TaskSupervisor, fn ->
@@ -146,27 +184,36 @@ defmodule LabWeb.RunLive do
   @impl true
   def handle_info({ref, {:ok, result}}, socket) when is_reference(ref) do
     Process.demonitor(ref, [:flush])
-    {:noreply, assign(socket, :running, false) |> assign(:result, result)}
+    {:noreply, socket |> assign(:running, false) |> assign(:result, result)}
   end
 
   def handle_info({:DOWN, _ref, :process, _pid, reason}, socket) do
-    {:noreply, assign(socket, :running, false) |> assign(:error, "Task crashed: #{inspect(reason)}")}
+    {:noreply, socket |> assign(:running, false) |> assign(:error, "Task crashed: #{inspect(reason)}")}
+  end
+
+  def handle_info(:tick_elapsed, socket) do
+    if socket.assigns.running and socket.assigns.started_at do
+      elapsed = System.monotonic_time(:millisecond) - socket.assigns.started_at
+      {:noreply, assign(socket, :elapsed_ms, elapsed)}
+    else
+      {:noreply, socket}
+    end
   end
 
   def handle_info({:sampler, metrics, _meta}, socket) do
-    live_metrics = socket.assigns.live_metrics ++ [
-      %{label: "Run Queue", value: metrics.run_queue},
-      %{label: "Processes", value: metrics.process_count},
-      %{label: "Memory", value: div(metrics.beam_total_memory || 0, 1024 * 1024)}
-    ]
-    {:noreply, assign(socket, :live_metrics, Enum.take(live_metrics, -20))}
+    m = %{
+      run_queue: metrics.run_queue || 0,
+      process_count: metrics.process_count || 0,
+      beam_memory_mb: div(metrics.beam_total_memory || 0, 1024 * 1024),
+      sched_util: metrics.sched_util || [],
+      dirty_cpu_util: metrics.dirty_cpu_util || [],
+      dirty_io_util: metrics.dirty_io_util || []
+    }
+    {:noreply, assign(socket, :live_sampler, m)}
   end
 
   def handle_info({:latency_window, metrics, _meta}, socket) do
-    live_metrics = socket.assigns.live_metrics ++ [
-      %{label: "Latency p99", value: if(metrics[:p99_us], do: Float.round(metrics.p99_us / 1000, 2), else: "—")}
-    ]
-    {:noreply, assign(socket, :live_metrics, Enum.take(live_metrics, -20))}
+    {:noreply, assign(socket, :live_latency, metrics)}
   end
 
   def handle_info(_, socket), do: {:noreply, socket}
@@ -208,4 +255,25 @@ defmodule LabWeb.RunLive do
   end
 
   defp parse_value(value, _spec), do: value
+
+  # -- Template helpers --
+
+  defp format_elapsed(ms) do
+    s = div(ms, 1000)
+    if s < 60, do: "#{s}s", else: "#{div(s, 60)}m #{rem(s, 60)}s"
+  end
+
+  defp rq_status(q) when is_number(q) and q > 10, do: :danger
+  defp rq_status(q) when is_number(q) and q > 3, do: :warn
+  defp rq_status(_), do: :good
+
+  defp lat_status(nil), do: :neutral
+  defp lat_status(v) when is_number(v) and v > 50, do: :danger
+  defp lat_status(v) when is_number(v) and v > 10, do: :warn
+  defp lat_status(_), do: :good
+
+  defp bar_class(util, _kind) when util >= 0.99, do: "blocked"
+  defp bar_class(_util, :dirty_cpu), do: "dirty-cpu"
+  defp bar_class(_util, :dirty_io), do: "dirty-io"
+  defp bar_class(_util, :normal), do: "normal"
 end
