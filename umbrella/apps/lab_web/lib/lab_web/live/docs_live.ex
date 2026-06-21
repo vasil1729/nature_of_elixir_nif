@@ -11,8 +11,9 @@ defmodule LabWeb.DocsLive do
 
   @impl true
   def mount(%{"path" => path}, _session, socket) do
-    content = load_doc(path)
-    {:ok, socket |> assign(:docs, list_docs()) |> assign(:selected, path) |> assign(:content, content)}
+    doc_path = if is_list(path), do: Path.join(path), else: path
+    content = load_doc(doc_path)
+    {:ok, socket |> assign(:docs, list_docs()) |> assign(:selected, doc_path) |> assign(:content, content)}
   end
 
   def mount(_params, _session, socket) do
@@ -54,19 +55,22 @@ defmodule LabWeb.DocsLive do
        12_glossary 13_runbook)
   end
 
-  defp load_doc(path) do
-    # Handle adr/ subdirectory
-    full_path =
-      if String.starts_with?(path, "adr/") do
-        "docs/#{path}.md"
-      else
-        "docs/#{path}.md"
-      end
+  defp load_doc("adr" = path), do: load_doc("adr/README")
+  defp load_doc("adr/" <> rest), do: load_doc(rest)
 
-    File.read(full_path)
-    |> case do
+  defp load_doc(path) do
+    candidate = Path.join(docs_root(), "#{path}.md")
+    case File.read(candidate) do
       {:ok, content} -> content
       _ -> nil
+    end
+  end
+
+  defp docs_root do
+    if File.dir?("docs") do
+      "docs"
+    else
+      "../docs"
     end
   end
 end

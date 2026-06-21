@@ -25,6 +25,6 @@ defmodule LabWeb.Router do
     live "/reports/:id", ReportLive, :show
     live "/reports/final", ReportLive, :final
     live "/docs", DocsLive, :index
-    live "/docs/:path", DocsLive, :show
+    live "/docs/*path", DocsLive, :show
   end
 end
