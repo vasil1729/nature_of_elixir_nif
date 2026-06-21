@@ -260,7 +260,7 @@ e##_test.exs}`, verifies via `scripts/run_experiment.sh E##` or UI.
 
 - [x] **Phase 0 commit 1:** Meta-scaffold (AGENTS.md, PLAN.md, README, docs/INDEX, docs/00, docs/11, docs/12, docs/adr/README)
 - [x] **Phase 0 commit 2:** Mechanism deep-dives (docs/01–08)
-- [ ] **Phase 0 commit 3:** Architecture + dev guide + ADRs (docs/09, 10, 13, adr/0001–0008)
+- [x] **Phase 0 commit 3:** Architecture + dev guide + ADRs (docs/09, 10, 13, adr/0001–0008)
 - [ ] **Phase 1 commit 4:** docker/
 - [ ] **Phase 1 commit 5:** Elixir umbrella scaffold
 - [ ] **Phase 1 commit 6:** lab_core instrumentation
@@ -278,7 +278,7 @@ e##_test.exs}`, verifies via `scripts/run_experiment.sh E##` or UI.
 - [ ] **Phase 4 commit 38:** Catalog filled + charts
 - [ ] **Phase 4 commit 39:** FINAL_REPORT.md
 
-**Currently executing:** Phase 0 commit 3 — Architecture + dev guide + ADRs
+**Currently executing:** Phase 1 commit 4 — docker/
 
 ---
 
